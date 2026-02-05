@@ -72,6 +72,30 @@ class Permanence extends Model
         return $this->hasMany(RelationManageriale::class)->orderBy('heure_evenement');
     }
 
+    /**
+     * Relevés d'énergie des appareils (sous-officiers)
+     */
+    public function relevesEnergie(): HasMany
+    {
+        return $this->hasMany(ReleveEnergie::class)->orderBy('heure_releve');
+    }
+
+    /**
+     * Redémarrages d'appareils (officiers)
+     */
+    public function redemarragesAppareils(): HasMany
+    {
+        return $this->hasMany(RedemarrageAppareil::class)->orderBy('heure_debut');
+    }
+
+    /**
+     * Réceptions du matériel
+     */
+    public function receptionMateriels(): HasMany
+    {
+        return $this->hasMany(ReceptionMateriel::class);
+    }
+
     // ========== HELPERS ==========
 
     /**
@@ -146,6 +170,62 @@ class Permanence extends Model
     }
 
     // ========== SCOPES ==========
+
+    /**
+     * Scope pour filtrer les permanences visibles par un utilisateur.
+     * CLOISONNEMENT :
+     * - Admin/Officier : toutes les permanences
+     * - Sous-officier : uniquement celles où il est affecté
+     */
+    public function scopeForUser($query, User $user)
+    {
+        // Admin voit tout
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        // Officier voit tout (pourrait être filtré si nécessaire)
+        if ($user->isOfficier()) {
+            return $query;
+        }
+
+        // Sous-officier : UNIQUEMENT les permanences où il est affecté
+        if ($user->isSousOfficier()) {
+            return $query->whereHas('sousOfficiers', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+
+        // Sécurité : aucun résultat par défaut
+        return $query->whereRaw('1 = 0');
+    }
+
+    /**
+     * Scope pour filtrer les permanences que l'utilisateur peut imprimer en PDF.
+     * Règles strictes : validée + (admin OU officier responsable)
+     */
+    public function scopePrintableBy($query, User $user)
+    {
+        // Sous-officier ne peut JAMAIS imprimer
+        if ($user->isSousOfficier()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Doit être validée
+        $query->where('statut', StatutPermanence::Validee);
+
+        // Admin peut imprimer toutes les validées
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        // Officier : uniquement ses propres permanences
+        if ($user->isOfficier()) {
+            return $query->where('officier_id', $user->id);
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
 
     public function scopeForDate($query, $date)
     {

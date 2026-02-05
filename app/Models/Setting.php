@@ -16,6 +16,24 @@ class Setting extends Model
     ];
 
     /**
+     * Mutateur pour normaliser la valeur selon le type
+     * Évite de stocker des booléens pour les types file/string/text
+     */
+    protected function value(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: fn ($value) => $value,
+            set: function ($value) {
+                // Si la valeur est false et le type n'est pas boolean, normalise à null
+                if ($value === false && $this->type !== 'boolean') {
+                    return null;
+                }
+                return $value;
+            },
+        );
+    }
+
+    /**
      * Récupère une valeur de paramètre
      */
     public static function get(string $key, mixed $default = null): mixed

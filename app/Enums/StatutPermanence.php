@@ -15,9 +15,9 @@ enum StatutPermanence: string implements HasLabel, HasColor, HasIcon
     public function getLabel(): string
     {
         return match ($this) {
-            self::Planifiee => 'Planifiée',
-            self::EnCours => 'En cours',
-            self::Validee => 'Validée',
+            self::Planifiee => __('permanence.statuts.planifiee'),
+            self::EnCours => __('permanence.statuts.en_cours'),
+            self::Validee => __('permanence.statuts.validee'),
         };
     }
 

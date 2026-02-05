@@ -6,6 +6,15 @@ use App\Models\Permanence;
 use App\Models\RelationManageriale;
 use App\Models\User;
 
+/**
+ * Policy de cloisonnement STRICT pour les Relations Managériales (événements).
+ * 
+ * RÈGLES FONDAMENTALES DE CLOISONNEMENT :
+ * - Sous-officier voit UNIQUEMENT ses propres saisies
+ * - Sous-officier ne voit JAMAIS les saisies des autres sous-officiers
+ * - Sous-officier ne voit JAMAIS les saisies de l'officier
+ * - Officier/Admin voient tout
+ */
 class RelationManagerialePolicy
 {
     /**
@@ -13,22 +22,28 @@ class RelationManagerialePolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return true; // Filtrage fait via scope
     }
 
     /**
      * Determine whether the user can view the model.
+     * CLOISONNEMENT STRICT pour sous-officier.
      */
     public function view(User $user, RelationManageriale $relation): bool
     {
-        // Admin et Officier peuvent tout voir
-        if ($user->isAdmin() || $user->isOfficier()) {
+        // Admin voit tout
+        if ($user->isAdmin()) {
             return true;
         }
 
-        // Sous-officier ne peut voir que s'il est affecté à la permanence
+        // Officier voit tout (dans ses permanences)
+        if ($user->isOfficier()) {
+            return true;
+        }
+
+        // CLOISONNEMENT STRICT : Sous-officier voit UNIQUEMENT ses propres saisies
         if ($user->isSousOfficier()) {
-            return $user->isAffectedToPermanence($relation->permanence);
+            return $relation->sous_officier_id === $user->id;
         }
 
         return false;

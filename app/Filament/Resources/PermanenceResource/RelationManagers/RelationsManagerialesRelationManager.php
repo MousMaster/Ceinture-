@@ -19,11 +19,20 @@ class RelationsManagerialesRelationManager extends RelationManager
 {
     protected static string $relationship = 'relationsManageriales';
 
-    protected static ?string $title = 'Relation Managériale';
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('permanence.sections.relation_manageriale');
+    }
 
-    protected static ?string $modelLabel = 'Événement';
+    public static function getModelLabel(): string
+    {
+        return __('permanence.relation.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Événements';
+    public static function getPluralModelLabel(): string
+    {
+        return __('permanence.relation.plural');
+    }
 
     /**
      * Permet les actions de création/modification même sur la page View
@@ -40,15 +49,15 @@ class RelationsManagerialesRelationManager extends RelationManager
 
         return $form
             ->schema([
-                Forms\Components\Section::make('Informations de l\'événement')
+                Forms\Components\Section::make(__('permanence.sections.evenements'))
                     ->schema([
                         Forms\Components\TimePicker::make('heure_evenement')
-                            ->label('Heure de l\'événement')
+                            ->label(__('permanence.relation.heure_evenement'))
                             ->required()
                             ->seconds(false)
                             ->native(false),
                         Forms\Components\Select::make('sous_officier_id')
-                            ->label('Auteur')
+                            ->label(__('permanence.relation.auteur'))
                             ->options(function () use ($permanence, $user) {
                                 // Si sous-officier, seulement lui-même
                                 if ($user->isSousOfficier()) {
@@ -82,19 +91,19 @@ class RelationsManagerialesRelationManager extends RelationManager
                             ->required(),
                     ])->columns(2),
 
-                Forms\Components\Section::make('Détails')
+                Forms\Components\Section::make(__('permanence.relation.label'))
                     ->schema([
                         Forms\Components\Textarea::make('evenement')
-                            ->label('Événement / Fait constaté')
+                            ->label(__('permanence.relation.evenement'))
                             ->required()
                             ->rows(3)
                             ->columnSpanFull(),
                         Forms\Components\Textarea::make('effets_ordonnes')
-                            ->label('Effets ordonnés')
+                            ->label(__('permanence.relation.effets_ordonnes'))
                             ->rows(3)
                             ->columnSpanFull(),
                         Forms\Components\Textarea::make('observations')
-                            ->label('Observations')
+                            ->label(__('permanence.relation.observations'))
                             ->rows(3)
                             ->columnSpanFull(),
                     ]),
@@ -108,39 +117,49 @@ class RelationsManagerialesRelationManager extends RelationManager
 
         return $table
             ->recordTitleAttribute('evenement')
+            // CLOISONNEMENT STRICT : Sous-officier ne voit que SES propres saisies
+            ->modifyQueryUsing(function (Builder $query) use ($user) {
+                if ($user->isSousOfficier()) {
+                    // Filtre strict : uniquement les événements créés par ce sous-officier
+                    $query->where('sous_officier_id', $user->id);
+                }
+                return $query;
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('heure_evenement')
-                    ->label('Heure')
+                    ->label(__('permanence.relation.heure_evenement'))
                     ->time('H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('sousOfficier.nom_complet')
-                    ->label('Auteur')
+                    ->label(__('permanence.relation.auteur'))
                     ->searchable(['nom', 'prenom'])
                     ->description(fn (RelationManageriale $record) => 
                         $record->sous_officier_id === $this->getOwnerRecord()->officier_id 
-                            ? 'Officier' 
-                            : 'Sous-officier'
+                            ? __('users.types.officier') 
+                            : __('users.types.sous_officier')
                     ),
                 Tables\Columns\TextColumn::make('evenement')
-                    ->label('Événement')
+                    ->label(__('permanence.relation.evenement'))
                     ->limit(50)
                     ->tooltip(fn (RelationManageriale $record) => $record->evenement)
                     ->searchable(),
                 Tables\Columns\TextColumn::make('effets_ordonnes')
-                    ->label('Effets ordonnés')
+                    ->label(__('permanence.relation.effets_ordonnes'))
                     ->limit(30)
                     ->placeholder('-')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Saisi le')
+                    ->label(__('permanence.relation.saisi_le'))
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('heure_evenement')
             ->filters([
+                // Filtre auteur visible UNIQUEMENT pour Admin et Officier
+                // Sous-officier ne peut pas voir les autres auteurs
                 Tables\Filters\SelectFilter::make('sous_officier_id')
-                    ->label('Auteur')
+                    ->label(__('permanence.relation.auteur'))
                     ->options(function () use ($permanence) {
                         $options = collect();
                         $options[$permanence->officier->id] = $permanence->officier->nom_complet . ' (Officier)';
@@ -148,11 +167,12 @@ class RelationsManagerialesRelationManager extends RelationManager
                             $options[$so->id] = $so->nom_complet;
                         }
                         return $options;
-                    }),
+                    })
+                    ->visible(fn () => !$user->isSousOfficier()),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->label('Nouvel événement')
+                    ->label(__('permanence.actions.add_event'))
                     ->visible(fn () => $this->canCreate()),
             ])
             ->actions([
@@ -168,13 +188,13 @@ class RelationsManagerialesRelationManager extends RelationManager
                         ->visible(fn () => $user->isAdmin()),
                 ]),
             ])
-            ->emptyStateHeading('Aucun événement')
+            ->emptyStateHeading(__('permanence.messages.no_events'))
             ->emptyStateDescription($permanence->isLocked() 
-                ? 'Cette permanence est validée et fermée.' 
-                : 'Commencez par ajouter un premier événement.')
+                ? __('permanence.messages.locked') 
+                : __('permanence.actions.add_event'))
             ->emptyStateActions([
                 Tables\Actions\CreateAction::make()
-                    ->label('Ajouter un événement')
+                    ->label(__('permanence.actions.add_event'))
                     ->visible(fn () => $this->canCreate()),
             ]);
     }
@@ -226,11 +246,4 @@ class RelationsManagerialesRelationManager extends RelationManager
         return $record->canBeDeletedBy(auth()->user());
     }
 
-    /**
-     * Filtre les événements pour les sous-officiers
-     */
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery();
-    }
 }

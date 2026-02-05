@@ -17,13 +17,22 @@ class SettingResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected static ?string $navigationGroup = 'Administration';
-
-    protected static ?string $modelLabel = 'Paramètre';
-
-    protected static ?string $pluralModelLabel = 'Paramètres';
-
     protected static ?int $navigationSort = 10;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('settings.resource.navigation_group');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('settings.resource.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('settings.resource.plural');
+    }
 
     public static function canCreate(): bool
     {
@@ -34,44 +43,56 @@ class SettingResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Paramètre')
+                Forms\Components\Section::make(__('settings.sections.parameter'))
                     ->schema([
                         Forms\Components\TextInput::make('label')
-                            ->label('Libellé')
+                            ->label(__('settings.fields.label'))
                             ->disabled(),
                         Forms\Components\TextInput::make('key')
-                            ->label('Clé')
+                            ->label(__('settings.fields.key'))
                             ->disabled(),
                         Forms\Components\Select::make('group')
-                            ->label('Groupe')
+                            ->label(__('settings.fields.group'))
                             ->options([
-                                'institution' => 'Institution',
-                                'logos' => 'Logos',
-                                'pdf' => 'PDF',
-                                'general' => 'Général',
+                                'institution' => __('settings.groups.institution'),
+                                'logos' => __('settings.groups.logos'),
+                                'pdf' => __('settings.groups.pdf'),
+                                'general' => __('settings.groups.general'),
                             ])
                             ->disabled(),
                     ])->columns(3),
 
-                Forms\Components\Section::make('Valeur')
+                Forms\Components\Section::make(__('settings.sections.value'))
                     ->schema([
                         Forms\Components\TextInput::make('value')
-                            ->label('Valeur')
+                            ->label(__('settings.fields.value'))
                             ->maxLength(500)
                             ->visible(fn (Get $get) => $get('type') === 'string'),
                         Forms\Components\Textarea::make('value')
-                            ->label('Valeur')
+                            ->label(__('settings.fields.value'))
                             ->rows(4)
                             ->visible(fn (Get $get) => $get('type') === 'text'),
                         Forms\Components\FileUpload::make('value')
-                            ->label('Fichier')
+                            ->label(__('settings.fields.file'))
                             ->image()
                             ->directory('logos')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
-                            ->visible(fn (Get $get) => $get('type') === 'file'),
+                            ->visible(fn (Get $get) => $get('type') === 'file')
+                            ->afterStateHydrated(function (Forms\Components\FileUpload $component, $state) {
+                                // Normalise la valeur pour éviter TypeError si false/null/non-string
+                                if ($state === false || $state === null || $state === '') {
+                                    $component->state(null);
+                                } elseif (is_string($state)) {
+                                    // Vérifie que le fichier existe avant de l'afficher
+                                    $component->state($state);
+                                } elseif (!is_array($state)) {
+                                    // Pour tout autre type inattendu, reset à null
+                                    $component->state(null);
+                                }
+                            }),
                         Forms\Components\Toggle::make('value')
-                            ->label('Valeur')
+                            ->label(__('settings.fields.value'))
                             ->visible(fn (Get $get) => $get('type') === 'boolean'),
                     ]),
             ]);
@@ -82,7 +103,7 @@ class SettingResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('group')
-                    ->label('Groupe')
+                    ->label(__('settings.fields.group'))
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'institution' => 'primary',
@@ -92,30 +113,30 @@ class SettingResource extends Resource
                     })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('label')
-                    ->label('Libellé')
+                    ->label(__('settings.fields.label'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('key')
-                    ->label('Clé')
+                    ->label(__('settings.fields.key'))
                     ->searchable()
                     ->fontFamily('mono')
                     ->size('sm'),
                 Tables\Columns\TextColumn::make('type')
-                    ->label('Type')
+                    ->label(__('settings.fields.type'))
                     ->badge(),
                 Tables\Columns\TextColumn::make('value')
-                    ->label('Valeur')
+                    ->label(__('settings.fields.value'))
                     ->limit(50)
                     ->placeholder('-'),
             ])
             ->defaultSort('group')
             ->filters([
                 Tables\Filters\SelectFilter::make('group')
-                    ->label('Groupe')
+                    ->label(__('settings.fields.group'))
                     ->options([
-                        'institution' => 'Institution',
-                        'logos' => 'Logos',
-                        'pdf' => 'PDF',
-                        'general' => 'Général',
+                        'institution' => __('settings.groups.institution'),
+                        'logos' => __('settings.groups.logos'),
+                        'pdf' => __('settings.groups.pdf'),
+                        'general' => __('settings.groups.general'),
                     ]),
             ])
             ->actions([

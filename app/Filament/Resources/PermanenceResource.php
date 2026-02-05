@@ -24,13 +24,22 @@ class PermanenceResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $navigationGroup = 'Gestion';
-
-    protected static ?string $modelLabel = 'Permanence';
-
-    protected static ?string $pluralModelLabel = 'Permanences';
-
     protected static ?int $navigationSort = 1;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('permanence.resource.navigation_group');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('permanence.resource.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('permanence.resource.plural');
+    }
 
     public static function form(Form $form): Form
     {
@@ -38,10 +47,10 @@ class PermanenceResource extends Resource
 
         return $form
             ->schema([
-                Forms\Components\Section::make('Informations de la permanence')
+                Forms\Components\Section::make(__('permanence.sections.info'))
                     ->schema([
                         Forms\Components\Select::make('officier_id')
-                            ->label('Officier responsable')
+                            ->label(__('permanence.fields.officier_id'))
                             ->options(function () use ($user) {
                                 $query = User::where('type', UserType::Officier)->where('is_active', true);
                                 return $query->get()->pluck('nom_complet', 'id');
@@ -52,32 +61,33 @@ class PermanenceResource extends Resource
                             ->required()
                             ->searchable(),
                         Forms\Components\DatePicker::make('date')
-                            ->label('Date de la permanence')
+                            ->label(__('permanence.fields.date'))
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->native(false)
                             ->displayFormat('d/m/Y'),
                         Forms\Components\TimePicker::make('heure_debut')
-                            ->label('Heure de début')
+                            ->label(__('permanence.fields.heure_debut'))
                             ->required()
                             ->seconds(false)
                             ->native(false),
                         Forms\Components\TimePicker::make('heure_fin')
-                            ->label('Heure de fin')
+                            ->label(__('permanence.fields.heure_fin'))
                             ->required()
                             ->seconds(false)
                             ->native(false)
                             ->after('heure_debut'),
                     ])->columns(2),
 
-                Forms\Components\Section::make('Affectations des sous-officiers')
+                // Section affectations : MASQUÉE pour sous-officiers
+                Forms\Components\Section::make(__('permanence.sections.affectations'))
                     ->schema([
                         Forms\Components\Repeater::make('affectations')
                             ->relationship()
                             ->label('')
                             ->schema([
                                 Forms\Components\Select::make('sous_officier_id')
-                                    ->label('Sous-officier')
+                                    ->label(__('users.types.sous_officier'))
                                     ->options(
                                         User::where('type', UserType::SousOfficier)
                                             ->where('is_active', true)
@@ -93,36 +103,44 @@ class PermanenceResource extends Resource
                                     ->searchable(),
                             ])
                             ->columns(2)
-                            ->addActionLabel('Ajouter un sous-officier')
+                            ->addActionLabel(__('permanence.actions.add_affectation'))
                             ->reorderable(false)
                             ->defaultItems(0)
                             ->disabled(fn (?Permanence $record) => $record?->isLocked() && !auth()->user()->isAdmin()),
                     ])
-                    ->hidden(fn (string $operation): bool => $operation === 'create'),
+                    ->hidden(function (string $operation) use ($user): bool {
+                        // Masqué à la création ET pour les sous-officiers
+                        return $operation === 'create' || $user->isSousOfficier();
+                    }),
 
-                Forms\Components\Section::make('Commentaire')
+                // Section commentaire officier : MASQUÉE pour sous-officiers
+                Forms\Components\Section::make(__('permanence.sections.commentaire'))
                     ->schema([
                         Forms\Components\Textarea::make('commentaire_officier')
-                            ->label('Commentaire de l\'officier')
+                            ->label(__('permanence.fields.commentaire_officier'))
                             ->rows(3)
                             ->columnSpanFull()
                             ->disabled(fn (?Permanence $record) => $record?->isLocked() && !auth()->user()->isAdmin()),
-                    ]),
+                    ])
+                    ->hidden(fn () => $user->isSousOfficier()),
 
-                Forms\Components\Section::make('Statut')
+                // Section validation : MASQUÉE pour sous-officiers
+                Forms\Components\Section::make(__('permanence.sections.statut'))
                     ->schema([
                         Forms\Components\Select::make('statut')
-                            ->label('Statut')
+                            ->label(__('permanence.fields.statut'))
                             ->options(StatutPermanence::forSelect())
                             ->default(StatutPermanence::Planifiee->value)
                             ->disabled(fn () => !$user->isAdmin())
                             ->dehydrated(true)
                             ->required(),
                         Forms\Components\Placeholder::make('validated_at')
-                            ->label('Validée le')
+                            ->label(__('permanence.fields.validated_at'))
                             ->content(fn (?Permanence $record) => $record?->validated_at?->format('d/m/Y H:i') ?? '-')
                             ->hidden(fn (?Permanence $record) => !$record?->isLocked()),
-                    ])->columns(2),
+                    ])
+                    ->columns(2)
+                    ->hidden(fn () => $user->isSousOfficier()),
             ]);
     }
 
@@ -131,34 +149,34 @@ class PermanenceResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('date')
-                    ->label('Date')
+                    ->label(__('common.dates.date'))
                     ->date('d/m/Y')
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('officier.nom_complet')
-                    ->label('Officier')
+                    ->label(__('permanence.fields.officier'))
                     ->searchable(['nom', 'prenom'])
                     ->sortable(),
                 Tables\Columns\TextColumn::make('heure_debut')
-                    ->label('Début')
+                    ->label(__('permanence.fields.heure_debut'))
                     ->time('H:i'),
                 Tables\Columns\TextColumn::make('heure_fin')
-                    ->label('Fin')
+                    ->label(__('permanence.fields.heure_fin'))
                     ->time('H:i'),
                 Tables\Columns\TextColumn::make('statut')
-                    ->label('Statut')
+                    ->label(__('permanence.fields.statut'))
                     ->badge()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('affectations_count')
-                    ->label('Sous-officiers')
+                    ->label(__('users.types.sous_officier'))
                     ->counts('affectations')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('relations_manageriales_count')
-                    ->label('Événements')
+                    ->label(__('permanence.relation.plural'))
                     ->counts('relationsManageriales')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('validated_at')
-                    ->label('Validée le')
+                    ->label(__('permanence.fields.validated_at'))
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->placeholder('-'),
@@ -167,17 +185,19 @@ class PermanenceResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('statut')
                     ->options(StatutPermanence::forSelect()),
+                // Filtre officier : masqué pour sous-officiers
                 Tables\Filters\SelectFilter::make('officier_id')
-                    ->label('Officier')
+                    ->label(__('permanence.fields.officier'))
                     ->relationship('officier', 'nom')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->hidden(fn () => auth()->user()->isSousOfficier()),
                 Tables\Filters\Filter::make('date')
                     ->form([
                         Forms\Components\DatePicker::make('from')
-                            ->label('Du'),
+                            ->label(__('common.dates.from')),
                         Forms\Components\DatePicker::make('until')
-                            ->label('Au'),
+                            ->label(__('common.dates.to')),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -193,58 +213,77 @@ class PermanenceResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                // Edition : sous-officier JAMAIS autorisé
                 Tables\Actions\EditAction::make()
-                    ->hidden(fn (Permanence $record) => $record->isLocked() && !auth()->user()->isAdmin()),
+                    ->hidden(function (Permanence $record) {
+                        $user = auth()->user();
+                        // Sous-officier ne peut jamais éditer
+                        if ($user->isSousOfficier()) {
+                            return true;
+                        }
+                        return $record->isLocked() && !$user->isAdmin();
+                    }),
+                // Actions de gestion : sous-officier JAMAIS autorisé
                 Tables\Actions\Action::make('demarrer')
-                    ->label('Démarrer')
+                    ->label(__('permanence.actions.start'))
                     ->icon('heroicon-o-play')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->modalHeading('Démarrer la permanence')
-                    ->modalDescription('Voulez-vous démarrer cette permanence ?')
+                    ->modalHeading(__('permanence.modals.start_title'))
+                    ->modalDescription(__('permanence.messages.start_confirm'))
                     ->action(function (Permanence $record) {
                         $record->demarrer();
                         Notification::make()
-                            ->title('Permanence démarrée')
+                            ->title(__('permanence.messages.started'))
                             ->success()
                             ->send();
                     })
-                    ->visible(fn (Permanence $record) => 
-                        $record->statut === StatutPermanence::Planifiee && 
-                        auth()->user()->canManagePermanence($record)
-                    ),
+                    ->visible(function (Permanence $record) {
+                        $user = auth()->user();
+                        // Sous-officier JAMAIS autorisé
+                        if ($user->isSousOfficier()) {
+                            return false;
+                        }
+                        return $record->statut === StatutPermanence::Planifiee && 
+                               $user->canManagePermanence($record);
+                    }),
                 Tables\Actions\Action::make('valider')
-                    ->label('Valider')
+                    ->label(__('permanence.actions.validate'))
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->modalHeading('Valider la permanence')
-                    ->modalDescription('Cette action est irréversible. Une fois validée, la permanence ne pourra plus être modifiée.')
+                    ->modalHeading(__('permanence.modals.validate_title'))
+                    ->modalDescription(__('permanence.messages.locked_warning'))
                     ->action(function (Permanence $record) {
                         $record->valider();
                         Notification::make()
-                            ->title('Permanence validée')
+                            ->title(__('permanence.messages.validated'))
                             ->success()
                             ->send();
                     })
-                    ->visible(fn (Permanence $record) => 
-                        !$record->isLocked() && 
-                        auth()->user()->canManagePermanence($record)
-                    ),
+                    ->visible(function (Permanence $record) {
+                        $user = auth()->user();
+                        // Sous-officier JAMAIS autorisé
+                        if ($user->isSousOfficier()) {
+                            return false;
+                        }
+                        return !$record->isLocked() && 
+                               $user->canManagePermanence($record);
+                    }),
                 Tables\Actions\Action::make('rouvrir')
-                    ->label('Rouvrir')
+                    ->label(__('permanence.actions.reopen'))
                     ->icon('heroicon-o-lock-open')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->modalHeading('Rouvrir la permanence')
-                    ->modalDescription('Cette action permettra de modifier à nouveau la permanence.')
+                    ->modalHeading(__('permanence.modals.reopen_title'))
+                    ->modalDescription(__('permanence.messages.reopen_confirm'))
                     ->action(function (Permanence $record) {
                         $record->update([
                             'statut' => StatutPermanence::EnCours,
                             'validated_at' => null,
                         ]);
                         Notification::make()
-                            ->title('Permanence rouverte')
+                            ->title(__('permanence.messages.reopened'))
                             ->warning()
                             ->send();
                     })
@@ -252,15 +291,37 @@ class PermanenceResource extends Resource
                         $record->isLocked() && 
                         auth()->user()->isAdmin()
                     ),
+                // Action PDF avec règles STRICTES :
+                // - Permanence DOIT être validée
+                // - Sous-officier JAMAIS autorisé
+                // - Seuls Admin et Officier responsable
                 Tables\Actions\Action::make('imprimer')
-                    ->label('PDF')
+                    ->label(__('permanence.actions.print'))
                     ->icon('heroicon-o-printer')
                     ->color('gray')
                     ->url(fn (Permanence $record) => route('pdf.permanence.stream', $record))
                     ->openUrlInNewTab()
-                    ->visible(fn (Permanence $record) => 
-                        auth()->user()->isAdmin() || auth()->user()->canManagePermanence($record)
-                    ),
+                    ->visible(function (Permanence $record) {
+                        $user = auth()->user();
+                        
+                        // Règle 1 : Permanence DOIT être validée
+                        if (!$record->isLocked()) {
+                            return false;
+                        }
+                        
+                        // Règle 2 : Sous-officier JAMAIS autorisé
+                        if ($user->isSousOfficier()) {
+                            return false;
+                        }
+                        
+                        // Règle 3 : Admin peut toujours imprimer
+                        if ($user->isAdmin()) {
+                            return true;
+                        }
+                        
+                        // Règle 4 : Officier uniquement s'il est responsable
+                        return $user->isOfficier() && $record->officier_id === $user->id;
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -274,6 +335,9 @@ class PermanenceResource extends Resource
     {
         return [
             RelationManagers\RelationsManagerialesRelationManager::class,
+            RelationManagers\RelevesEnergieRelationManager::class,
+            RelationManagers\RedemarragesAppareilsRelationManager::class,
+            RelationManagers\ReceptionMaterielsRelationManager::class,
         ];
     }
 

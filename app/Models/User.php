@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FonctionSousOfficier;
 use App\Enums\UserType;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -25,6 +26,7 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'type',
+        'fonction',
         'is_active',
     ];
 
@@ -39,6 +41,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'type' => UserType::class,
+            'fonction' => FonctionSousOfficier::class,
             'is_active' => 'boolean',
         ];
     }
@@ -113,6 +116,57 @@ class User extends Authenticatable implements FilamentUser
     public function isSousOfficier(): bool
     {
         return $this->type === UserType::SousOfficier;
+    }
+
+    /**
+     * Vérifie si l'utilisateur est un Viewer (lecture seule).
+     */
+    public function isViewer(): bool
+    {
+        return $this->type === UserType::Viewer;
+    }
+
+    /**
+     * Vérifie si l'utilisateur est en lecture seule.
+     */
+    public function isReadOnly(): bool
+    {
+        return $this->type->isReadOnly();
+    }
+
+    /**
+     * Vérifie si l'utilisateur peut modifier des données.
+     */
+    public function canEdit(): bool
+    {
+        return $this->type->canEdit();
+    }
+
+    /**
+     * Vérifie si c'est un opérateur.
+     */
+    public function isOperateur(): bool
+    {
+        return $this->isSousOfficier() && $this->fonction === FonctionSousOfficier::Operateur;
+    }
+
+    /**
+     * Vérifie si c'est un chef de poste.
+     */
+    public function isChefPoste(): bool
+    {
+        return $this->isSousOfficier() && $this->fonction === FonctionSousOfficier::ChefPoste;
+    }
+
+    /**
+     * Retourne le libellé de la fonction.
+     */
+    public function getFonctionLabelAttribute(): string
+    {
+        if ($this->isSousOfficier() && $this->fonction) {
+            return $this->fonction->getLabel();
+        }
+        return $this->type->getLabel();
     }
 
     public function canManagePermanence(Permanence $permanence): bool

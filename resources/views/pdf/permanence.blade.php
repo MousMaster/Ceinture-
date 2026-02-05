@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -16,6 +16,31 @@
             font-size: 10pt;
             line-height: 1.4;
             color: #333;
+        }
+
+        /* RTL Support */
+        [dir="rtl"] body {
+            direction: rtl;
+            text-align: right;
+        }
+
+        [dir="rtl"] .affectations-table th,
+        [dir="rtl"] .affectations-table td,
+        [dir="rtl"] .evenements-table th,
+        [dir="rtl"] .evenements-table td {
+            text-align: right;
+        }
+
+        [dir="rtl"] .logo-left {
+            text-align: right;
+        }
+
+        [dir="rtl"] .logo-right {
+            text-align: left;
+        }
+
+        [dir="rtl"] .page-number {
+            text-align: left;
         }
 
         .page {
@@ -358,18 +383,18 @@
 
         <!-- Informations générales -->
         <div class="info-section">
-            <div class="info-title">Informations de la permanence</div>
+            <div class="info-title">{{ __('permanence.sections.info') }}</div>
             <table class="info-grid">
                 <tr>
-                    <td class="info-label">Date :</td>
+                    <td class="info-label">{{ __('common.dates.date') }} :</td>
                     <td class="info-value"><strong>{{ $date_permanence }}</strong></td>
-                    <td class="info-label">Période :</td>
+                    <td class="info-label">{{ __('permanence.fields.periode') }} :</td>
                     <td class="info-value">{{ $heure_debut }} - {{ $heure_fin }}</td>
                 </tr>
                 <tr>
-                    <td class="info-label">Officier de permanence :</td>
+                    <td class="info-label">{{ __('permanence.fields.officier') }} :</td>
                     <td class="info-value"><strong>{{ $officier->nom_complet }}</strong></td>
-                    <td class="info-label">Statut :</td>
+                    <td class="info-label">{{ __('permanence.fields.statut') }} :</td>
                     <td class="info-value">
                         <span class="status-badge status-{{ $permanence->statut->value }}">
                             {{ $permanence->statut->getLabel() }}
@@ -377,9 +402,9 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="info-label">Matricule :</td>
+                    <td class="info-label">{{ __('users.fields.matricule') }} :</td>
                     <td class="info-value">{{ $officier->matricule ?? '-' }}</td>
-                    <td class="info-label">Date d'édition :</td>
+                    <td class="info-label">{{ __('permanence.pdf.date_edition') }} :</td>
                     <td class="info-value">{{ $date_edition }}</td>
                 </tr>
             </table>
@@ -388,13 +413,13 @@
         <!-- Sous-officiers affectés -->
         @if($affectations->count() > 0)
         <div class="info-section">
-            <div class="info-title">Personnel affecté</div>
+            <div class="info-title">{{ __('permanence.sections.personnel') }}</div>
             <table class="affectations-table">
                 <thead>
                     <tr>
-                        <th style="width: 40%;">Sous-officier</th>
-                        <th style="width: 30%;">Matricule</th>
-                        <th style="width: 30%;">Site d'affectation</th>
+                        <th style="width: 40%;">{{ __('users.types.sous_officier') }}</th>
+                        <th style="width: 30%;">{{ __('users.fields.matricule') }}</th>
+                        <th style="width: 30%;">Site</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -413,35 +438,156 @@
         <!-- Commentaire de l'officier -->
         @if($permanence->commentaire_officier)
         <div class="commentaire-section">
-            <div class="commentaire-title">Commentaire de l'officier de permanence :</div>
+            <div class="commentaire-title">{{ __('permanence.fields.commentaire_officier') }} :</div>
             <div>{{ $permanence->commentaire_officier }}</div>
         </div>
         @endif
 
-        <!-- Événements / Relation managériale -->
-        <div class="evenements-section">
-            <div class="info-title" style="margin-bottom: 10px;">Relation managériale - Événements</div>
+        <!-- ========== SECTION MATÉRIEL ========== -->
+        
+        <!-- Matériel reçu par l'Officier -->
+        @if($has_materiel_officier || $has_materiel_operateurs)
+        <div class="evenements-section" style="margin-top: 20px;">
+            <div class="info-title" style="margin-bottom: 10px; background-color: #fff3e0; padding: 8px;">
+                📦 {{ $labels['materiel_section_officier'] }}
+            </div>
             
-            @if($evenements->count() > 0)
-            <table class="evenements-table">
+            @if($has_materiel_officier)
+            <table class="evenements-table" style="font-size: 9pt;">
                 <thead>
                     <tr>
-                        <th class="col-heure">Heure</th>
-                        <th class="col-auteur">Auteur</th>
-                        <th class="col-evenement">Événement / Fait constaté</th>
-                        <th class="col-effets">Effets ordonnés</th>
+                        <th style="width: 35%;">{{ $labels['materiel_appareil'] }}</th>
+                        <th style="width: 15%; text-align: center;">{{ $labels['materiel_recu'] }}</th>
+                        <th style="width: 20%;">{{ $labels['materiel_etat'] }}</th>
+                        <th style="width: 30%;">{{ $labels['materiel_commentaire'] }}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($evenements as $evenement)
+                    @foreach($materiel_officier as $reception)
                     <tr>
-                        <td class="col-heure">{{ $evenement->heure_evenement->format('H:i') }}</td>
-                        <td class="col-auteur">
-                            {{ $evenement->sousOfficier->nom_complet }}
-                            @if($evenement->sous_officier_id === $permanence->officier_id)
-                                <br><small>(Officier)</small>
+                        <td>{{ $reception->appareil->nom }}</td>
+                        <td style="text-align: center;">
+                            @if($reception->recu_integralite)
+                                <span style="color: green;">✓ {{ $labels['materiel_oui'] }}</span>
+                            @else
+                                <span style="color: red;">✗ {{ $labels['materiel_non'] }}</span>
                             @endif
                         </td>
+                        <td>
+                            @switch($reception->etat_fonctionnement->value)
+                                @case('fonctionne')
+                                    <span style="color: green;">{{ $labels['materiel_fonctionne'] }}</span>
+                                    @break
+                                @case('endommage')
+                                    <span style="color: orange;">{{ $labels['materiel_endommage'] }}</span>
+                                    @break
+                                @case('hors_service')
+                                    <span style="color: red;">{{ $labels['materiel_hors_service'] }}</span>
+                                    @break
+                            @endswitch
+                        </td>
+                        <td>{{ $reception->commentaire ?? '-' }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            @else
+            <div class="no-events">
+                {{ $labels['materiel_no_officier'] }}
+            </div>
+            @endif
+        </div>
+
+        <!-- Matériel reçu par les Opérateurs (regroupé par personne) -->
+        <div class="evenements-section" style="margin-top: 20px;">
+            <div class="info-title" style="margin-bottom: 10px; background-color: #e0f2f1; padding: 8px;">
+                📦 {{ $labels['materiel_section_operateurs'] }}
+            </div>
+            
+            @if($has_materiel_operateurs)
+                @foreach($materiel_operateurs as $operateurData)
+                <div class="sous-officier-block" style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
+                    <!-- En-tête de l'opérateur -->
+                    <div class="sous-officier-header" style="margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed #ccc;">
+                        <strong>{{ $operateurData['nom_complet'] }}</strong>
+                        <span style="background-color: #2196f3; color: white; padding: 2px 8px; border-radius: 3px; font-size: 8pt; margin-left: 10px;">
+                            {{ $operateurData['fonction'] }}
+                        </span>
+                        <span style="color: #666; font-size: 8pt; margin-left: 10px;">
+                            {{ $labels['matricule'] }}: {{ $operateurData['matricule'] }}
+                        </span>
+                    </div>
+                    
+                    <!-- Tableau du matériel de cet opérateur -->
+                    <table class="evenements-table" style="font-size: 9pt;">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">{{ $labels['materiel_appareil'] }}</th>
+                                <th style="width: 15%; text-align: center;">{{ $labels['materiel_recu'] }}</th>
+                                <th style="width: 20%;">{{ $labels['materiel_etat'] }}</th>
+                                <th style="width: 30%;">{{ $labels['materiel_commentaire'] }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($operateurData['receptions'] as $reception)
+                            <tr>
+                                <td>{{ $reception->appareil->nom }}</td>
+                                <td style="text-align: center;">
+                                    @if($reception->recu_integralite)
+                                        <span style="color: green;">✓ {{ $labels['materiel_oui'] }}</span>
+                                    @else
+                                        <span style="color: red;">✗ {{ $labels['materiel_non'] }}</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @switch($reception->etat_fonctionnement->value)
+                                        @case('fonctionne')
+                                            <span style="color: green;">{{ $labels['materiel_fonctionne'] }}</span>
+                                            @break
+                                        @case('endommage')
+                                            <span style="color: orange;">{{ $labels['materiel_endommage'] }}</span>
+                                            @break
+                                        @case('hors_service')
+                                            <span style="color: red;">{{ $labels['materiel_hors_service'] }}</span>
+                                            @break
+                                    @endswitch
+                                </td>
+                                <td>{{ $reception->commentaire ?? '-' }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endforeach
+            @else
+            <div class="no-events">
+                {{ $labels['materiel_no_operateurs'] }}
+            </div>
+            @endif
+        </div>
+        @endif
+
+        <!-- ========== SECTION ÉVÉNEMENTS ========== -->
+
+        <!-- SECTION 1 : Saisies de l'Officier -->
+        <div class="evenements-section">
+            <div class="info-title section-officer" style="margin-bottom: 10px; background-color: #e3f2fd; padding: 8px;">
+                🎖️ {{ $labels['section_officer'] }}
+            </div>
+            
+            @if($has_evenements_officier)
+            <table class="evenements-table">
+                <thead>
+                    <tr>
+                        <th class="col-heure">{{ $labels['hour'] }}</th>
+                        <th class="col-evenement">{{ $labels['event_fact'] }}</th>
+                        <th class="col-effets">{{ $labels['ordered_effects'] }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($evenements_officier as $evenement)
+                    <tr>
+                        <td class="col-heure">{{ $evenement->heure_evenement->format('H:i') }}</td>
                         <td class="col-evenement">
                             {{ $evenement->evenement }}
                             @if($evenement->observations)
@@ -455,7 +601,60 @@
             </table>
             @else
             <div class="no-events">
-                Aucun événement enregistré pour cette permanence.
+                {{ $labels['no_officer_events'] }}
+            </div>
+            @endif
+        </div>
+
+        <!-- SECTION 2 : Saisies des Sous-officiers (regroupées par personne) -->
+        <div class="evenements-section" style="margin-top: 20px;">
+            <div class="info-title section-sous-officiers" style="margin-bottom: 10px; background-color: #e8f5e9; padding: 8px;">
+                📝 {{ $labels['section_sous_officiers'] }}
+            </div>
+            
+            @if($has_evenements_sous_officiers)
+                @foreach($evenements_sous_officiers as $sousOfficierData)
+                <div class="sous-officier-block" style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; background-color: #fafafa;">
+                    <!-- En-tête du sous-officier avec type -->
+                    <div class="sous-officier-header" style="margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed #ccc;">
+                        <strong>{{ $sousOfficierData['nom_complet'] }}</strong>
+                        <span style="background-color: #ff9800; color: white; padding: 2px 8px; border-radius: 3px; font-size: 8pt; margin-left: 10px;">
+                            {{ $sousOfficierData['fonction'] }}
+                        </span>
+                        <span style="color: #666; font-size: 8pt; margin-left: 10px;">
+                            {{ $labels['matricule'] }}: {{ $sousOfficierData['matricule'] }}
+                        </span>
+                    </div>
+                    
+                    <!-- Tableau des saisies de ce sous-officier -->
+                    <table class="evenements-table" style="font-size: 9pt;">
+                        <thead>
+                            <tr>
+                                <th class="col-heure">{{ $labels['hour'] }}</th>
+                                <th class="col-evenement">{{ $labels['event_fact'] }}</th>
+                                <th class="col-effets">{{ $labels['ordered_effects'] }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sousOfficierData['evenements'] as $evenement)
+                            <tr>
+                                <td class="col-heure">{{ $evenement->heure_evenement->format('H:i') }}</td>
+                                <td class="col-evenement">
+                                    {{ $evenement->evenement }}
+                                    @if($evenement->observations)
+                                        <br><small><em>Obs: {{ $evenement->observations }}</em></small>
+                                    @endif
+                                </td>
+                                <td class="col-effets">{{ $evenement->effets_ordonnes ?? '-' }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endforeach
+            @else
+            <div class="no-events">
+                {{ $labels['no_sous_officier_events'] }}
             </div>
             @endif
         </div>
@@ -463,27 +662,27 @@
         <!-- Section signatures et validation -->
         <div class="signatures-section">
             <div class="validation-box">
-                <div class="validation-title">Validation du registre</div>
+                <div class="validation-title">{{ __('permanence.sections.validation') }}</div>
                 
                 <table class="signature-grid">
                     <tr>
                         <td>
-                            <div class="signature-label">Officier de permanence :</div>
+                            <div class="signature-label">{{ __('permanence.fields.officier') }} :</div>
                             <div class="signature-value">{{ $officier->nom_complet }}</div>
-                            <div class="signature-label">Fonction :</div>
-                            <div class="signature-value">Officier de permanence</div>
-                            <div class="signature-zone">Signature</div>
+                            <div class="signature-label">{{ __('permanence.pdf.fonction') }} :</div>
+                            <div class="signature-value">{{ __('permanence.fields.officier') }}</div>
+                            <div class="signature-zone">{{ __('permanence.pdf.signature') }}</div>
                         </td>
                         <td>
-                            <div class="signature-label">Date de validation :</div>
+                            <div class="signature-label">{{ __('permanence.pdf.validation_date') }} :</div>
                             <div class="signature-value">
                                 @if($permanence->validated_at)
-                                    {{ $permanence->validated_at->format('d/m/Y à H:i') }}
+                                    {{ $permanence->validated_at->format('d/m/Y H:i') }}
                                 @else
-                                    Non validée
+                                    -
                                 @endif
                             </div>
-                            <div class="signature-label">Numéro de permanence :</div>
+                            <div class="signature-label">{{ __('permanence.pdf.numero') }} :</div>
                             <div class="signature-value">#{{ str_pad($permanence->id, 6, '0', STR_PAD_LEFT) }}</div>
                         </td>
                     </tr>
@@ -491,8 +690,8 @@
 
                 @if($permanence->validated_at)
                 <div class="validation-electronic">
-                    <strong>✓ Document validé électroniquement</strong><br>
-                    Validation effectuée le {{ $permanence->validated_at->format('d/m/Y à H:i') }}
+                    <strong>✓ {{ __('permanence.pdf.validation_electronic') }}</strong><br>
+                    {{ __('permanence.pdf.validation_date') }} {{ $permanence->validated_at->format('d/m/Y H:i') }}
                 </div>
                 @endif
             </div>

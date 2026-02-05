@@ -16,41 +16,50 @@ class SiteResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-map-pin';
 
-    protected static ?string $navigationGroup = 'Administration';
-
-    protected static ?string $modelLabel = 'Site';
-
-    protected static ?string $pluralModelLabel = 'Sites';
-
     protected static ?int $navigationSort = 2;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('site.resource.navigation_group');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('site.resource.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('site.resource.plural');
+    }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informations du site')
+                Forms\Components\Section::make(__('site.sections.info'))
                     ->schema([
                         Forms\Components\TextInput::make('nom')
-                            ->label('Nom du site')
+                            ->label(__('site.fields.nom'))
                             ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('code')
-                            ->label('Code')
+                            ->label(__('site.fields.code'))
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(50)
-                            ->helperText('Code unique d\'identification'),
+                            ->helperText(__('site.messages.code_help')),
                         Forms\Components\TextInput::make('localisation')
-                            ->label('Localisation')
+                            ->label(__('site.fields.localisation'))
                             ->maxLength(255),
                         Forms\Components\Textarea::make('description')
-                            ->label('Description')
+                            ->label(__('site.fields.description'))
                             ->rows(3)
                             ->columnSpanFull(),
                         Forms\Components\Toggle::make('is_active')
-                            ->label('Actif')
+                            ->label(__('site.fields.is_active'))
                             ->default(true)
-                            ->helperText('Désactiver pour masquer ce site'),
+                            ->helperText(__('site.messages.deactivate_help')),
                     ])->columns(2),
             ]);
     }
@@ -60,29 +69,29 @@ class SiteResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Code')
+                    ->label(__('site.fields.code'))
                     ->badge()
                     ->color('primary')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('nom')
-                    ->label('Nom du site')
+                    ->label(__('site.fields.nom'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('localisation')
-                    ->label('Localisation')
+                    ->label(__('site.fields.localisation'))
                     ->searchable()
                     ->placeholder('-'),
                 Tables\Columns\IconColumn::make('is_active')
-                    ->label('Actif')
+                    ->label(__('site.fields.is_active'))
                     ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('affectations_count')
-                    ->label('Affectations')
+                    ->label(__('site.fields.affectations_count'))
                     ->counts('affectations')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Créé le')
+                    ->label(__('site.fields.created_at'))
                     ->dateTime('d/m/Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -90,9 +99,9 @@ class SiteResource extends Resource
             ->defaultSort('nom')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Statut')
-                    ->trueLabel('Actifs uniquement')
-                    ->falseLabel('Inactifs uniquement'),
+                    ->label(__('common.status.active'))
+                    ->trueLabel(__('common.status.active'))
+                    ->falseLabel(__('common.status.inactive')),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

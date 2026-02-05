@@ -100,6 +100,51 @@ class RelationManageriale extends Model
         return false;
     }
 
+    // ========== SCOPES ==========
+
+    /**
+     * Scope pour filtrer les événements visibles par un utilisateur.
+     * CLOISONNEMENT STRICT :
+     * - Admin/Officier : tous les événements
+     * - Sous-officier : UNIQUEMENT ses propres saisies
+     */
+    public function scopeVisibleBy($query, User $user)
+    {
+        // Admin voit tout
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        // Officier voit tout
+        if ($user->isOfficier()) {
+            return $query;
+        }
+
+        // CLOISONNEMENT STRICT : Sous-officier voit UNIQUEMENT ses propres saisies
+        if ($user->isSousOfficier()) {
+            return $query->where('sous_officier_id', $user->id);
+        }
+
+        // Sécurité : aucun résultat par défaut
+        return $query->whereRaw('1 = 0');
+    }
+
+    /**
+     * Scope pour filtrer par permanence.
+     */
+    public function scopeForPermanence($query, Permanence $permanence)
+    {
+        return $query->where('permanence_id', $permanence->id);
+    }
+
+    /**
+     * Scope pour filtrer par auteur (sous-officier).
+     */
+    public function scopeByAuthor($query, User $user)
+    {
+        return $query->where('sous_officier_id', $user->id);
+    }
+
     // ========== ACTIVITY LOG ==========
 
     public function getActivitylogOptions(): LogOptions
