@@ -1,5 +1,3 @@
-# Fichiers ignorés lors du build Docker
-
 # Git
 .git
 .gitignore
@@ -9,66 +7,38 @@
 .idea
 .vscode
 *.swp
-*.swo
-*~
 
 # Node
 node_modules
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Cache et fichiers temporaires
-.phpunit.cache
-.php-cs-fixer.cache
-coverage
 
 # Tests
 tests
 phpunit.xml
 .phpunit.result.cache
+.phpunit.cache
 
 # Documentation
 README.md
-CHANGELOG.md
-CONTRIBUTING.md
 docs
 
-# Docker (éviter la récursion)
+# Docker
 docker-compose*.yml
-Dockerfile
-docker
 
-# Fichiers d'environnement
+# Environnement
 .env
-.env.*
-!.env.example
-!.env.docker
+.env.local
+.env.*.local
 
-# Storage (sera monté en volume)
+# Storage (monte en volume)
 storage/app/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 storage/logs/*
-!storage/app/.gitignore
-!storage/framework/.gitignore
-!storage/logs/.gitignore
 
 # Bootstrap cache
 bootstrap/cache/*
-!bootstrap/cache/.gitignore
 
-# Vendor (sera installé dans le conteneur)
-# Commenté pour permettre l'installation via Composer dans le Dockerfile
-# vendor
-
-# Public uploads
-public/storage
-
-# Fichiers Mac
+# Mac/Windows
 .DS_Store
 Thumbs.db

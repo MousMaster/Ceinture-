@@ -16,18 +16,53 @@ class Setting extends Model
     ];
 
     /**
-     * Mutateur pour normaliser la valeur selon le type
-     * Évite de stocker des booléens pour les types file/string/text
+     * Mutateur pour normaliser la valeur selon le type.
+     * - file: retourne toujours une string ou null (jamais false/boolean)
+     * - boolean: retourne un booléen
+     * - autres: retourne la valeur telle quelle
      */
     protected function value(): \Illuminate\Database\Eloquent\Casts\Attribute
     {
         return \Illuminate\Database\Eloquent\Casts\Attribute::make(
-            get: fn ($value) => $value,
+            get: function ($value) {
+                // Normalisation à la lecture selon le type
+                if ($this->type === 'file') {
+                    // File doit être une string valide ou null
+                    if ($value === false || $value === 'false' || $value === '' || $value === '[]') {
+                        return null;
+                    }
+                    return is_string($value) ? $value : null;
+                }
+
+                if ($this->type === 'boolean') {
+                    return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                }
+
+                return $value;
+            },
             set: function ($value) {
-                // Si la valeur est false et le type n'est pas boolean, normalise à null
-                if ($value === false && $this->type !== 'boolean') {
+                // Normalisation à l'écriture selon le type
+                if ($this->type === 'file') {
+                    // Ne jamais stocker false pour un fichier
+                    if ($value === false || $value === 'false' || $value === []) {
+                        return null;
+                    }
+                    // Si c'est un tableau (Livewire), prendre le premier élément
+                    if (is_array($value)) {
+                        return !empty($value) ? reset($value) : null;
+                    }
+                    return is_string($value) && $value !== '' ? $value : null;
+                }
+
+                if ($this->type === 'boolean') {
+                    return $value ? '1' : '0';
+                }
+
+                // Pour les autres types, éviter de stocker false
+                if ($value === false) {
                     return null;
                 }
+
                 return $value;
             },
         );

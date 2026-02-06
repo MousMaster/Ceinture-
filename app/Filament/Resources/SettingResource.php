@@ -78,18 +78,33 @@ class SettingResource extends Resource
                             ->directory('logos')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
+                            ->maxFiles(1)
                             ->visible(fn (Get $get) => $get('type') === 'file')
-                            ->afterStateHydrated(function (Forms\Components\FileUpload $component, $state) {
-                                // Normalise la valeur pour éviter TypeError si false/null/non-string
-                                if ($state === false || $state === null || $state === '') {
-                                    $component->state(null);
-                                } elseif (is_string($state)) {
-                                    // Vérifie que le fichier existe avant de l'afficher
-                                    $component->state($state);
-                                } elseif (!is_array($state)) {
-                                    // Pour tout autre type inattendu, reset à null
-                                    $component->state(null);
+                            ->default([])
+                            ->formatStateUsing(function ($state) {
+                                // Normalise AVANT hydratation - convertit false/null/string en array
+                                if ($state === false || $state === null || $state === '' || $state === 'false') {
+                                    return [];
                                 }
+                                if (is_string($state) && $state !== '') {
+                                    return [$state];
+                                }
+                                return is_array($state) ? $state : [];
+                            })
+                            ->getUploadedFileNameForStorageUsing(
+                                fn ($file): string => str($file->getClientOriginalName())
+                                    ->prepend(now()->timestamp . '_')
+                                    ->toString()
+                            )
+                            ->dehydrateStateUsing(function ($state) {
+                                // Garantit qu'on stocke une string ou null, jamais un tableau/false
+                                if (empty($state)) {
+                                    return null;
+                                }
+                                if (is_array($state)) {
+                                    return !empty($state) ? reset($state) : null;
+                                }
+                                return is_string($state) ? $state : null;
                             }),
                         Forms\Components\Toggle::make('value')
                             ->label(__('settings.fields.value'))

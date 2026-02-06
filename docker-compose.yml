@@ -1,22 +1,36 @@
-# Docker Compose pour Registre de Permanence
-# Laravel 12 + Filament + Livewire + Export PDF
-# 
-# Usage:
-#   docker compose up -d          # Démarrer
-#   docker compose down           # Arrêter
-#   docker compose logs -f        # Voir les logs
-#   docker compose exec php bash  # Shell dans le conteneur PHP
-#
-# Version minimale: Docker Compose 2.x
+# Registre de Permanence - Docker Compose
+# Laravel 12 + PHP 8.4 + Nginx + SQLite
 
 services:
-  # ===========================================
-  # Nginx - Serveur Web
-  # ===========================================
-  nginx:
+  # PHP-FPM
+  php:
     build:
-      context: ./docker/nginx
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: registre_php
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html
+      - ./database/database.sqlite:/var/www/html/database/database.sqlite
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL:-http://localhost:8080}
+    networks:
+      - registre_net
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Nginx
+  nginx:
+    image: nginx:alpine
     container_name: registre_nginx
     restart: unless-stopped
     ports:
@@ -25,210 +39,12 @@ services:
       - .:/var/www/html:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./storage/app/public:/var/www/html/storage/app/public:ro
-      - nginx_logs:/var/log/nginx
     depends_on:
       php:
         condition: service_healthy
     networks:
-      - registre_network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      - registre_net
 
-  # ===========================================
-  # PHP-FPM - Application Laravel
-  # ===========================================
-  php:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      args:
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
-    container_name: registre_php
-    restart: unless-stopped
-    volumes:
-      - .:/var/www/html
-      - ./storage:/var/www/html/storage
-      - php_logs:/var/log/php
-    environment:
-      - APP_NAME=${APP_NAME:-Registre de Permanence}
-      - APP_ENV=${APP_ENV:-local}
-      - APP_KEY=${APP_KEY:-}
-      - APP_DEBUG=${APP_DEBUG:-true}
-      - APP_URL=${APP_URL:-http://localhost:8080}
-      - APP_TIMEZONE=${APP_TIMEZONE:-Africa/Nouakchott}
-      - APP_LOCALE=${APP_LOCALE:-fr}
-      - DB_CONNECTION=${DB_CONNECTION:-mysql}
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_DATABASE=${DB_DATABASE:-registre_permanence}
-      - DB_USERNAME=${DB_USERNAME:-registre}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - CACHE_STORE=${CACHE_STORE:-redis}
-      - SESSION_DRIVER=${SESSION_DRIVER:-redis}
-      - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-      - REDIS_HOST=${REDIS_HOST:-redis}
-      - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-null}
-      - MAIL_MAILER=${MAIL_MAILER:-log}
-      - LOG_CHANNEL=${LOG_CHANNEL:-stack}
-      - LOG_LEVEL=${LOG_LEVEL:-debug}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - registre_network
-    healthcheck:
-      test: ["CMD", "php-fpm", "-t"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # ===========================================
-  # MySQL - Base de données
-  # ===========================================
-  mysql:
-    image: mysql:8.0
-    container_name: registre_mysql
-    restart: unless-stopped
-    ports:
-      - "${DB_EXTERNAL_PORT:-3307}:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${DB_DATABASE:-registre_permanence}
-      MYSQL_USER: ${DB_USERNAME:-registre}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
-    networks:
-      - registre_network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-
-  # ===========================================
-  # Redis - Cache et Sessions
-  # ===========================================
-  redis:
-    image: redis:alpine
-    container_name: registre_redis
-    restart: unless-stopped
-    ports:
-      - "${REDIS_EXTERNAL_PORT:-6380}:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - registre_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    command: redis-server --appendonly yes
-
-  # ===========================================
-  # Queue Worker - Traitement des jobs
-  # ===========================================
-  queue:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      args:
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
-    container_name: registre_queue
-    restart: unless-stopped
-    volumes:
-      - .:/var/www/html
-      - ./storage:/var/www/html/storage
-    environment:
-      - APP_ENV=${APP_ENV:-local}
-      - APP_KEY=${APP_KEY:-}
-      - DB_CONNECTION=${DB_CONNECTION:-mysql}
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_DATABASE=${DB_DATABASE:-registre_permanence}
-      - DB_USERNAME=${DB_USERNAME:-registre}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - CACHE_STORE=${CACHE_STORE:-redis}
-      - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-      - REDIS_HOST=${REDIS_HOST:-redis}
-      - REDIS_PORT=${REDIS_PORT:-6379}
-    depends_on:
-      php:
-        condition: service_healthy
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - registre_network
-    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
-
-  # ===========================================
-  # Scheduler - Tâches planifiées (optionnel)
-  # ===========================================
-  scheduler:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      args:
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
-    container_name: registre_scheduler
-    restart: unless-stopped
-    volumes:
-      - .:/var/www/html
-      - ./storage:/var/www/html/storage
-    environment:
-      - APP_ENV=${APP_ENV:-local}
-      - APP_KEY=${APP_KEY:-}
-      - DB_CONNECTION=${DB_CONNECTION:-mysql}
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_DATABASE=${DB_DATABASE:-registre_permanence}
-      - DB_USERNAME=${DB_USERNAME:-registre}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - CACHE_STORE=${CACHE_STORE:-redis}
-      - REDIS_HOST=${REDIS_HOST:-redis}
-    depends_on:
-      php:
-        condition: service_healthy
-      mysql:
-        condition: service_healthy
-    networks:
-      - registre_network
-    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
-
-# ===========================================
-# Volumes persistants
-# ===========================================
-volumes:
-  mysql_data:
-    driver: local
-  redis_data:
-    driver: local
-  nginx_logs:
-    driver: local
-  php_logs:
-    driver: local
-
-# ===========================================
-# Réseau
-# ===========================================
 networks:
-  registre_network:
+  registre_net:
     driver: bridge
